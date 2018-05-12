@@ -87,6 +87,12 @@ logNode(typeNode);
 
 type DeepPick = { [key: string]: true | DeepPick };
 
+/**
+ * Converts a Node into a pretty-printed string.
+ *
+ * @param node The node to convert
+ * @returns The string representation of the Node
+ */
 function getNodeString(node: ts.Node): string {
 	const transientFile = ts.createSourceFile(
 		'transientFile.ts',
@@ -106,6 +112,11 @@ function getNodeString(node: ts.Node): string {
 	return result;
 }
 
+/**
+ * Pretty prints a Node to the console.
+ *
+ * @param node The node to log
+ */
 function logNode(node: ts.Node): void {
 	console.log(getNodeString(node));
 }
@@ -114,6 +125,12 @@ function logNode(node: ts.Node): void {
  * Helpers for converting a DocumentNode into a deep pick of results
  */
 
+/**
+ * Converts a GraphQL DocumentNode into a DeepPick of the fields selected
+ *
+ * @param doc The DocumentNode to convert
+ * @returns A DeepPick representing the selected fields
+ */
 function documentToType(doc: DocumentNode): DeepPick {
 	if (doc.definitions.length > 1) {
 		throw 'Can only handle documents with one definition currently';
@@ -139,10 +156,21 @@ function documentToType(doc: DocumentNode): DeepPick {
 	}
 }
 
-function queryToResultType(query: OperationDefinitionNode) {
+/**
+ * Converts a GraphQL query into a DeepPick of the fields selected
+ *
+ * @param query The GraphQL query to convert
+ * @returns A DeepPick representing the selected fields
+ */
+function queryToResultType(query: OperationDefinitionNode): DeepPick {
 	return selectionSetOwnerToResultType(query.selectionSet);
 }
 
+/**
+ * Converts a GraphQL selection set into a DeepPick of the fields selected
+ * @param selectionSet The selection set to convert
+ * @returns A DeepPick representing the selected fields
+ */
 function selectionSetOwnerToResultType(
 	selectionSet: SelectionSetNode,
 ): DeepPick {
@@ -156,6 +184,14 @@ function selectionSetOwnerToResultType(
 	);
 }
 
+/**
+ * Converts a GraphQL selection set item into a key-value tuple for the fields selected.
+ * The value will be 'true' if this is a scalar field, otherwise the value will be a
+ * DeepPick representing the deeper selected fields.
+ *
+ * @param selection The selection to convert
+ * @returns A key-value tuple
+ */
 function selectionToResultType(
 	selection: FieldNode | FragmentSpreadNode | InlineFragmentNode,
 ): [string, true | DeepPick] {
@@ -171,21 +207,37 @@ function selectionToResultType(
 	}
 }
 
-function fieldToResultType(selection: FieldNode) {
+/**
+ * Converts a GraphQL FieldNode into the appropriate DeepPick value, which
+ * is either the value 'true' or a further DeepPick.
+ *
+ * @param field The FieldNode to convert
+ * @returns 'true' if this field is a scalar field, otherwise a DeepPick
+ */
+function fieldToResultType(field: FieldNode): true | DeepPick {
 	// If there is no selection set, this should be a scalar value
-	if (!selection.selectionSet) {
+	if (!field.selectionSet) {
 		return true;
 	}
 
 	// Otherwise we need to parse the selection set
-	return selectionSetOwnerToResultType(selection.selectionSet);
+	return selectionSetOwnerToResultType(field.selectionSet);
 }
 
 /**
  * Helpers for transforming a deep pick into an actual type
  */
 
-function buildTypeBuilder(schema: GraphQLSchema) {
+/**
+ * Builds a type builder from a GraphQL schema
+ *
+ * @param schema The GraphQL schmea to use
+ * @returns A type builder function that accepts a DeepPick and returns a
+ * TypeScript type for the DeepPick and the provided schema
+ */
+function buildTypeBuilder(
+	schema: GraphQLSchema,
+): (pick: DeepPick) => ts.TypeReferenceNode {
 	return function(pick: DeepPick) {
 		return ts.createTypeReferenceNode('GraphQLQueryString', [
 			entriesToTypeLiteral(pick, schema.getQueryType().getFields()),
@@ -193,7 +245,17 @@ function buildTypeBuilder(schema: GraphQLSchema) {
 	};
 }
 
-function propertySignature(name: string, type: ts.TypeNode) {
+/**
+ * Helper method for less verbose property signature creation.
+ *
+ * @param name The name for the property signature
+ * @param type The type node for the property signature
+ * @returns A TypeScript PropertySignature
+ */
+function propertySignature(
+	name: string,
+	type: ts.TypeNode,
+): ts.PropertySignature {
 	return ts.createPropertySignature(
 		undefined,
 		name,
@@ -203,6 +265,18 @@ function propertySignature(name: string, type: ts.TypeNode) {
 	);
 }
 
+/**
+ * Converts a basic GraphQL type to a TypeScript TypeNode.
+ *
+ * In this context, "basic" means a type that decomposes into a non-object
+ * type in TypeScript. For example:
+ *
+ * Basic Types: string, number[], boolean | string
+ * Complex Types: { a: string }, { b: number }[]
+ *
+ * @param type The type to convert
+ * @returns A TypeScript TypeNode
+ */
 function basicGraphQlTypeToTypeNode(type: GraphQLType): ts.TypeNode {
 	if (type instanceof GraphQLScalarType) {
 		return tsTypeFromGraphQLScalarType(type);
@@ -222,7 +296,20 @@ function basicGraphQlTypeToTypeNode(type: GraphQLType): ts.TypeNode {
 	}
 }
 
-function advancedGraphQLTypeToTypeNode(
+/**
+ * Converts a complex GraphQL type to a TypeScript TypeNode.
+ *
+ * In this context, "complex" means a type that decomposes into an
+ * object type in TypeScript. For example:
+ *
+ * Basic Types: string, number[], boolean | string
+ * Complex Types: { a: string }, { b: number }[]
+ *
+ * @param type The type to convert
+ * @param pick The fields to pick
+ * @returns A TypeScript TypeNode
+ */
+function complexGraphQLTypeToTypeNode(
 	type: GraphQLType,
 	pick: DeepPick,
 ): ts.TypeNode {
@@ -232,14 +319,20 @@ function advancedGraphQLTypeToTypeNode(
 		throw 'Cannot yet parse union types';
 	} else if (type instanceof GraphQLList) {
 		return ts.createArrayTypeNode(
-			advancedGraphQLTypeToTypeNode(type.ofType, pick),
+			complexGraphQLTypeToTypeNode(type.ofType, pick),
 		);
 	} else if (type instanceof GraphQLNonNull) {
 		// TODO - add support in output TS type for optional fields
-		return advancedGraphQLTypeToTypeNode(type.ofType, pick);
+		return complexGraphQLTypeToTypeNode(type.ofType, pick);
 	}
 }
 
+/**
+ * Converts a GraphQL scalar type to a TypeScript TypeNode.
+ *
+ * @param type The GraphQL scalar type to convert
+ * @returns A TypeScript TypeNode
+ */
 function tsTypeFromGraphQLScalarType(type: GraphQLScalarType): ts.TypeNode {
 	switch (type.name) {
 		case 'String':
@@ -254,6 +347,13 @@ function tsTypeFromGraphQLScalarType(type: GraphQLScalarType): ts.TypeNode {
 	}
 }
 
+/**
+ * Converts a GraphQL object type into a TypeScript TypeNode.
+ *
+ * @param type The GraphQL object type to convert
+ * @param pick The fields to pick
+ * @returns A TypeScript TypeNode
+ */
 function tsTypeFromGraphQLObjectType(
 	type: GraphQLObjectType,
 	pick: DeepPick,
@@ -261,6 +361,13 @@ function tsTypeFromGraphQLObjectType(
 	return entriesToTypeLiteral(pick, type.getFields());
 }
 
+/**
+ * Converts a set of fields and a pick into a TypeScript TypeLiteralNode.
+ *
+ * @param pick The fields to pick
+ * @param fields The field map to pick from
+ * @returns A type literal node
+ */
 function entriesToTypeLiteral(
 	pick: DeepPick,
 	fields: GraphQLFieldMap<any, any>,
@@ -272,15 +379,22 @@ function entriesToTypeLiteral(
 	);
 }
 
+/**
+ * Converts a GraphQL field into a TypeScript TypeNode using a provided pick specifier
+ *
+ * @param value Either true if this is a scalar field to pick or a DeepPick
+ * representing the fields to pick.
+ * @param field The field to pick from
+ */
 function entryToType(
-	value: boolean | DeepPick,
+	value: true | DeepPick,
 	field: GraphQLField<any, any, any>,
-) {
+): ts.TypeNode {
 	if (typeof value === 'boolean') {
 		// Get the schema type
 		return basicGraphQlTypeToTypeNode(field.type);
 	}
 
 	// Otherwise it's a more advanced type that we need to find and recurse
-	return advancedGraphQLTypeToTypeNode(field.type, value);
+	return complexGraphQLTypeToTypeNode(field.type, value);
 }
