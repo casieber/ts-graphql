@@ -46,7 +46,7 @@ type Query {
 schema {
 	query: Query
 }
-`
+`;
 
 const schema = buildSchema(schemaStr);
 
@@ -57,11 +57,11 @@ const queryStr = `{
 			title
 		}
 	}
-}`
+}`;
 
 const root = {
-	user: ({ id }) => id === 'abc' ? ({ name: 'Colby' }) : null
-}
+	user: ({ id }) => (id === 'abc' ? { name: 'Colby' } : null),
+};
 
 // graphql(schema, queryStr, root).then(result => {
 // 	if (result.errors) {
@@ -83,7 +83,6 @@ const typeNode = pickToType(selections);
 
 logNode(typeNode);
 
-
 // Attempt to build type based on queryStr
 
 type DeepPick = { [key: string]: true | DeepPick };
@@ -94,12 +93,16 @@ function getNodeString(node: ts.Node): string {
 		'',
 		ts.ScriptTarget.Latest,
 		false,
-		ts.ScriptKind.TS
+		ts.ScriptKind.TS,
 	);
 
 	const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed });
-	const result = printer.printNode(ts.EmitHint.Unspecified, node, transientFile);
-	
+	const result = printer.printNode(
+		ts.EmitHint.Unspecified,
+		node,
+		transientFile,
+	);
+
 	return result;
 }
 
@@ -126,7 +129,7 @@ function documentToType(doc: DocumentNode): DeepPick {
 		throw 'Can only handle OperationDefinition kinds';
 	}
 
-	switch(definition.operation) {
+	switch (definition.operation) {
 		case 'query':
 			return queryToResultType(definition);
 		case 'mutation':
@@ -140,15 +143,22 @@ function queryToResultType(query: OperationDefinitionNode) {
 	return selectionSetOwnerToResultType(query.selectionSet);
 }
 
-function selectionSetOwnerToResultType(selectionSet: SelectionSetNode): DeepPick {
-	return selectionSet.selections.reduce((obj, node) => {
-		const [name, value] = selectionToResultType(node);
-		obj[name] = value;
-		return obj;
-	}, {} as any);
+function selectionSetOwnerToResultType(
+	selectionSet: SelectionSetNode,
+): DeepPick {
+	return selectionSet.selections.reduce(
+		(obj, node) => {
+			const [name, value] = selectionToResultType(node);
+			obj[name] = value;
+			return obj;
+		},
+		{} as any,
+	);
 }
 
-function selectionToResultType(selection: FieldNode | FragmentSpreadNode | InlineFragmentNode): [string, true | DeepPick] {
+function selectionToResultType(
+	selection: FieldNode | FragmentSpreadNode | InlineFragmentNode,
+): [string, true | DeepPick] {
 	switch (selection.kind) {
 		case 'Field':
 			return [selection.name.value, fieldToResultType(selection)];
@@ -176,12 +186,11 @@ function fieldToResultType(selection: FieldNode) {
  */
 
 function buildTypeBuilder(schema: GraphQLSchema) {
-	return function (pick: DeepPick) {
-		return ts.createTypeReferenceNode(
-			'GraphQLQueryString',
-			[entriesToTypeLiteral(pick, schema.getQueryType().getFields())]
-		);
-	}
+	return function(pick: DeepPick) {
+		return ts.createTypeReferenceNode('GraphQLQueryString', [
+			entriesToTypeLiteral(pick, schema.getQueryType().getFields()),
+		]);
+	};
 }
 
 function propertySignature(name: string, type: ts.TypeNode) {
@@ -199,14 +208,12 @@ function basicGraphQlTypeToTypeNode(type: GraphQLType): ts.TypeNode {
 		return tsTypeFromGraphQLScalarType(type);
 	} else if (type instanceof GraphQLEnumType) {
 		return ts.createUnionTypeNode(
-			type.getValues().map(
-				({ name }) => ts.createLiteralTypeNode(ts.createLiteral(name))
-			)
+			type
+				.getValues()
+				.map(({ name }) => ts.createLiteralTypeNode(ts.createLiteral(name))),
 		);
 	} else if (type instanceof GraphQLList) {
-		return ts.createArrayTypeNode(
-			basicGraphQlTypeToTypeNode(type.ofType)
-		);
+		return ts.createArrayTypeNode(basicGraphQlTypeToTypeNode(type.ofType));
 	} else if (type instanceof GraphQLNonNull) {
 		// TODO - add support in output TS type for optional fields
 		return basicGraphQlTypeToTypeNode(type.ofType);
@@ -215,14 +222,17 @@ function basicGraphQlTypeToTypeNode(type: GraphQLType): ts.TypeNode {
 	}
 }
 
-function advancedGraphQLTypeToTypeNode(type: GraphQLType, pick: DeepPick): ts.TypeNode {
+function advancedGraphQLTypeToTypeNode(
+	type: GraphQLType,
+	pick: DeepPick,
+): ts.TypeNode {
 	if (type instanceof GraphQLObjectType) {
 		return tsTypeFromGraphQLObjectType(type, pick);
 	} else if (type instanceof GraphQLUnionType) {
 		throw 'Cannot yet parse union types';
 	} else if (type instanceof GraphQLList) {
 		return ts.createArrayTypeNode(
-			advancedGraphQLTypeToTypeNode(type.ofType, pick)
+			advancedGraphQLTypeToTypeNode(type.ofType, pick),
 		);
 	} else if (type instanceof GraphQLNonNull) {
 		// TODO - add support in output TS type for optional fields
@@ -244,19 +254,28 @@ function tsTypeFromGraphQLScalarType(type: GraphQLScalarType): ts.TypeNode {
 	}
 }
 
-function tsTypeFromGraphQLObjectType(type: GraphQLObjectType, pick: DeepPick): ts.TypeNode {
+function tsTypeFromGraphQLObjectType(
+	type: GraphQLObjectType,
+	pick: DeepPick,
+): ts.TypeNode {
 	return entriesToTypeLiteral(pick, type.getFields());
 }
 
-function entriesToTypeLiteral(pick: DeepPick, fields: GraphQLFieldMap<any, any>): ts.TypeLiteralNode {
+function entriesToTypeLiteral(
+	pick: DeepPick,
+	fields: GraphQLFieldMap<any, any>,
+): ts.TypeLiteralNode {
 	return ts.createTypeLiteralNode(
 		Object.keys(pick).map(key =>
-			propertySignature(key, entryToType(pick[key], fields[key]))
-		)
-	)
+			propertySignature(key, entryToType(pick[key], fields[key])),
+		),
+	);
 }
 
-function entryToType(value: boolean | DeepPick, field: GraphQLField<any, any, any>) {
+function entryToType(
+	value: boolean | DeepPick,
+	field: GraphQLField<any, any, any>,
+) {
 	if (typeof value === 'boolean') {
 		// Get the schema type
 		return basicGraphQlTypeToTypeNode(field.type);
