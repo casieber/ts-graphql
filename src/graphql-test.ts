@@ -81,6 +81,14 @@ const pickToType = buildTypeBuilder(schema);
 
 const typeNode = pickToType(selections);
 
+const resultFile = ts.createSourceFile("transientFileName.ts", "", ts.ScriptTarget.Latest, /*setParentNodes*/ false, ts.ScriptKind.TS);
+const printer = ts.createPrinter({
+    newLine: ts.NewLineKind.LineFeed,
+});
+const result = printer.printNode(ts.EmitHint.Unspecified, typeNode, resultFile);
+console.log(result);
+
+
 // Attempt to build type based on queryStr
 
 type DeepPick = { [key: string]: true | DeepPick };
