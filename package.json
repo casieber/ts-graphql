@@ -1,0 +1,22 @@
+{
+  "name": "ts-graphql",
+  "version": "0.1.0",
+  "description": "",
+  "main": "dist/index.js",
+  "typings": "dist/index.d.ts",
+  "scripts": {
+    "test": "ts-node ./src/graphql-test.ts",
+    "build": "tsc",
+    "watch": "tsc --watch"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "graphql": "^0.13.2",
+    "typescript": "^2.8.3"
+  },
+  "devDependencies": {
+    "@types/graphql": "^0.13.1",
+    "ts-node": "^6.0.3"
+  }
+}
