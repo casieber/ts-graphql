@@ -81,18 +81,31 @@ const pickToType = buildTypeBuilder(schema);
 
 const typeNode = pickToType(selections);
 
-const resultFile = ts.createSourceFile("transientFileName.ts", "", ts.ScriptTarget.Latest, /*setParentNodes*/ false, ts.ScriptKind.TS);
-const printer = ts.createPrinter({
-    newLine: ts.NewLineKind.LineFeed,
-});
-const result = printer.printNode(ts.EmitHint.Unspecified, typeNode, resultFile);
-console.log(result);
+logNode(typeNode);
 
 
 // Attempt to build type based on queryStr
 
 type DeepPick = { [key: string]: true | DeepPick };
 
+function getNodeString(node: ts.Node): string {
+	const transientFile = ts.createSourceFile(
+		'transientFile.ts',
+		'',
+		ts.ScriptTarget.Latest,
+		false,
+		ts.ScriptKind.TS
+	);
+
+	const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed });
+	const result = printer.printNode(ts.EmitHint.Unspecified, node, transientFile);
+	
+	return result;
+}
+
+function logNode(node: ts.Node): void {
+	console.log(getNodeString(node));
+}
 
 /**
  * Helpers for converting a DocumentNode into a deep pick of results
