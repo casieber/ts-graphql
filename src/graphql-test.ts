@@ -132,9 +132,11 @@ function selectionToResultType(selection: FieldNode | FragmentSpreadNode | Inlin
 		case 'Field':
 			return [selection.name.value, fieldToResultType(selection)];
 		case 'FragmentSpread':
+			throw `Cannot yet parse FragmentSpreads`;
 		case 'InlineFragment':
+			throw `Cannot yet parse InlineFragments`;
 		default:
-			throw `Selection kind ${selection.kind} not supported`;
+			throw `Unknown selection kind: ${selection!.kind}`;
 	}
 }
 
