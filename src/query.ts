@@ -32,40 +32,6 @@ import * as ts from 'typescript';
 export type DeepPick = { [key: string]: true | DeepPick };
 
 /**
- * Converts a Node into a pretty-printed string.
- *
- * @param node The node to convert
- * @returns The string representation of the Node
- */
-export function getNodeString(node: ts.Node): string {
-	const transientFile = ts.createSourceFile(
-		'transientFile.ts',
-		'',
-		ts.ScriptTarget.Latest,
-		false,
-		ts.ScriptKind.TS,
-	);
-
-	const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed });
-	const result = printer.printNode(
-		ts.EmitHint.Unspecified,
-		node,
-		transientFile,
-	);
-
-	return result;
-}
-
-/**
- * Pretty prints a Node to the console.
- *
- * @param node The node to log
- */
-export function logNode(node: ts.Node): void {
-	console.log(getNodeString(node));
-}
-
-/**
  * Helpers for converting a DocumentNode into a deep pick of results
  */
 
