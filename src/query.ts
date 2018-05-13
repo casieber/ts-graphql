@@ -27,9 +27,7 @@ import {
 
 import * as ts from 'typescript';
 
-// Attempt to build type based on queryStr
-
-export type DeepPick = { [key: string]: true | DeepPick };
+import { DeepPick } from './types';
 
 /**
  * Helpers for converting a DocumentNode into a deep pick of results
