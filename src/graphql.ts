@@ -1,6 +1,7 @@
 import { buildSchema, parse } from 'graphql';
 
-import { documentToType, buildTypeBuilder } from './query';
+import { documentToType } from './lexer';
+import { buildTypeBuilder } from './parser';
 
 import { logNode } from './utils';
 

@@ -1,6 +1,6 @@
 import { parse } from 'graphql';
 
-import { documentToType } from './query';
+import { documentToType } from './lexer';
 
 describe('documentToType()', () => {
 	test('works for single item', () => {
