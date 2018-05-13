@@ -2,7 +2,7 @@ import * as ts from 'typescript';
 
 import { parse } from 'graphql';
 
-import { notImplemented } from './utils';
+import { notImplemented, isTagged } from './utils';
 import { documentToType } from './lexer';
 import { buildTypeBuilder } from './parser';
 
@@ -11,13 +11,30 @@ import { logNode } from './utils';
 // TODO: This should eventually come from the user
 import schema from './testSchema';
 
+// TODO: This should eventually come from the user
+const expectedTag = 'gql';
+
 const pickToType = buildTypeBuilder(schema);
 
 const isQueryExecution = notImplemented;
-const isQueryString = notImplemented;
 const injectQueryExecutionWithType = notImplemented;
 
-function injectQueryStringWithType(node: ts.Node, queryStr: string) {
+/**
+ * Checks whether or not a node is a query string
+ *
+ * @param node The node to check
+ * @returns The query string if the node is determined to be a
+ * query string, false otherwise
+ */
+export function isQueryString(node: ts.Node): string | false {
+	if (isTagged(node, expectedTag)) {
+		return (node as ts.NoSubstitutionTemplateLiteral).text;
+	}
+
+	return false;
+}
+
+export function injectQueryStringWithType(node: ts.Node, queryStr: string) {
 	const query = parse(queryStr);
 
 	// Determine the selected items
