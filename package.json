@@ -6,7 +6,6 @@
   "typings": "dist/index.d.ts",
   "scripts": {
     "test": "jest --coverage",
-    "test-gql": "ts-node ./src/graphql.ts",
     "build": "tsc",
     "watch": "tsc --watch"
   },

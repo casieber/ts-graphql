@@ -1,176 +1,31 @@
+/**
+ * This file contains utilities for transforming a DeepPick into a fully
+ * fledged TypeScript TypeNode, representing the output type of a GraphQL
+ * operation.
+ *
+ * I've grouped these utilitis together under the name of 'parser' because if
+ * you make the analogy of this transformer to the standard steps of a compiler,
+ * this step of going from some intermediate to fully grasping the meaning.
+ *
+ * Not to mention the fact that this phase results in a TypeScript AST Node.
+ */
+
 import {
-	buildSchema,
-	validateSchema,
-	validate,
-	execute,
-	graphql,
-	parse,
-	DocumentNode,
-	OperationDefinitionNode,
-	FieldNode,
-	FragmentSpreadNode,
-	InlineFragmentNode,
-	SelectionSetNode,
 	GraphQLSchema,
-	GraphQLField,
-	GraphQLFieldMap,
 	GraphQLType,
 	GraphQLScalarType,
-	GraphQLObjectType,
-	GraphQLNonNull,
-	GraphQLList,
-	GraphQLUnionType,
 	GraphQLEnumType,
-	GraphQLInputObjectType,
-	GraphQLInterfaceType,
+	GraphQLList,
+	GraphQLNonNull,
+	GraphQLObjectType,
+	GraphQLUnionType,
+	GraphQLField,
+	GraphQLFieldMap,
 } from 'graphql';
 
 import * as ts from 'typescript';
 
-// Attempt to build type based on queryStr
-
-export type DeepPick = { [key: string]: true | DeepPick };
-
-/**
- * Converts a Node into a pretty-printed string.
- *
- * @param node The node to convert
- * @returns The string representation of the Node
- */
-export function getNodeString(node: ts.Node): string {
-	const transientFile = ts.createSourceFile(
-		'transientFile.ts',
-		'',
-		ts.ScriptTarget.Latest,
-		false,
-		ts.ScriptKind.TS,
-	);
-
-	const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed });
-	const result = printer.printNode(
-		ts.EmitHint.Unspecified,
-		node,
-		transientFile,
-	);
-
-	return result;
-}
-
-/**
- * Pretty prints a Node to the console.
- *
- * @param node The node to log
- */
-export function logNode(node: ts.Node): void {
-	console.log(getNodeString(node));
-}
-
-/**
- * Helpers for converting a DocumentNode into a deep pick of results
- */
-
-/**
- * Converts a GraphQL DocumentNode into a DeepPick of the fields selected
- *
- * @param doc The DocumentNode to convert
- * @returns A DeepPick representing the selected fields
- */
-export function documentToType(doc: DocumentNode): DeepPick {
-	if (doc.definitions.length > 1) {
-		throw 'Can only handle documents with one definition currently';
-	}
-
-	if (doc.definitions.length === 0) {
-		throw 'Document has no definitions';
-	}
-
-	const definition = doc.definitions[0];
-
-	if (definition.kind !== 'OperationDefinition') {
-		throw 'Can only handle OperationDefinition kinds';
-	}
-
-	switch (definition.operation) {
-		case 'query':
-			return queryToResultType(definition);
-		case 'mutation':
-		case 'subscription':
-		default:
-			throw `Operation type ${definition.operation} not supported`;
-	}
-}
-
-/**
- * Converts a GraphQL query into a DeepPick of the fields selected
- *
- * @param query The GraphQL query to convert
- * @returns A DeepPick representing the selected fields
- */
-export function queryToResultType(query: OperationDefinitionNode): DeepPick {
-	return selectionSetOwnerToResultType(query.selectionSet);
-}
-
-/**
- * Converts a GraphQL selection set into a DeepPick of the fields selected
- * @param selectionSet The selection set to convert
- * @returns A DeepPick representing the selected fields
- */
-export function selectionSetOwnerToResultType(
-	selectionSet: SelectionSetNode,
-): DeepPick {
-	return selectionSet.selections.reduce(
-		(obj, node) => {
-			const [name, value] = selectionToResultType(node);
-			obj[name] = value;
-			return obj;
-		},
-		{} as any,
-	);
-}
-
-/**
- * Converts a GraphQL selection set item into a key-value tuple for the fields selected.
- * The value will be 'true' if this is a scalar field, otherwise the value will be a
- * DeepPick representing the deeper selected fields.
- *
- * @param selection The selection to convert
- * @returns A key-value tuple
- */
-export function selectionToResultType(
-	selection: FieldNode | FragmentSpreadNode | InlineFragmentNode,
-): [string, true | DeepPick] {
-	switch (selection.kind) {
-		case 'Field':
-			return [selection.name.value, fieldToResultType(selection)];
-		case 'FragmentSpread':
-			throw `Cannot yet parse FragmentSpreads`;
-		case 'InlineFragment':
-			throw `Cannot yet parse InlineFragments`;
-		default:
-			throw `Unknown selection kind: ${selection!.kind}`;
-	}
-}
-
-/**
- * Converts a GraphQL FieldNode into the appropriate DeepPick value, which
- * is either the value 'true' or a further DeepPick.
- *
- * @param field The FieldNode to convert
- * @returns 'true' if this field is a scalar field, otherwise a DeepPick
- */
-export function fieldToResultType(field: FieldNode): true | DeepPick {
-	// If there is no selection set, this should be a scalar value
-	if (!field.selectionSet) {
-		return true;
-	}
-
-	// Otherwise we need to parse the selection set
-	return selectionSetOwnerToResultType(field.selectionSet);
-}
-
-/**
- * Helpers for transforming a deep pick into an actual type
- */
+import { DeepPick } from './types';
 
 /**
  * Builds a type builder from a GraphQL schema
