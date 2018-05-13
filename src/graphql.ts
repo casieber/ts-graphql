@@ -1,6 +1,8 @@
 import { buildSchema, parse } from 'graphql';
 
-import { documentToType, buildTypeBuilder, logNode } from './query';
+import { documentToType, buildTypeBuilder } from './query';
+
+import { logNode } from './utils';
 
 const schemaStr = `
 type User {
